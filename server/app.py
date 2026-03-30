@@ -17,6 +17,12 @@ app = create_app(
     max_concurrent_envs=10,
 )
 
+@app.get("/")
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+
+
 def main(host: str = "0.0.0.0", port: int = 7860):
     import uvicorn
     uvicorn.run(app, host=host, port=port)
