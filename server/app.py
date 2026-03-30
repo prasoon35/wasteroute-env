@@ -4,11 +4,11 @@ except Exception as e:
     raise ImportError("openenv is required. Install with: uv sync") from e
 
 try:
-    from ..models import WasteAction, WasteObservation
-    from .wasteroute_env_environment import WasteRouteEnvironment
-except ModuleNotFoundError:
     from models import WasteAction, WasteObservation
     from server.wasteroute_env_environment import WasteRouteEnvironment
+except ModuleNotFoundError:
+    from models import WasteAction, WasteObservation
+    from wasteroute_env_environment import WasteRouteEnvironment
 
 app = create_app(
     WasteRouteEnvironment,
