@@ -1,14 +1,13 @@
-try:
-    from openenv.core.env_server.http_server import create_app
-except Exception as e:
-    raise ImportError("openenv is required. Install with: uv sync") from e
+import sys
+import os
 
-try:
-    from models import WasteAction, WasteObservation
-    from server.wasteroute_env_environment import WasteRouteEnvironment
-except ModuleNotFoundError:
-    from models import WasteAction, WasteObservation
-    from wasteroute_env_environment import WasteRouteEnvironment
+# Add parent directory to path so 'models' is always findable
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, '/app/env')
+
+from openenv.core.env_server.http_server import create_app
+from models import WasteAction, WasteObservation
+from server.wasteroute_env_environment import WasteRouteEnvironment
 
 app = create_app(
     WasteRouteEnvironment,
