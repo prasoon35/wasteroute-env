@@ -1,82 +1,51 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
 
-"""Wasteroute Env Environment Client."""
+"""WasteRoute Environment Client."""
 
 from typing import Dict
-
 from openenv.core import EnvClient
 from openenv.core.client_types import StepResult
 from openenv.core.env_server.types import State
 
-from .models import WasterouteAction, WasterouteObservation
+from .models import WasteAction, WasteObservation
 
 
-class WasterouteEnv(
-    EnvClient[WasterouteAction, WasterouteObservation, State]
-):
+class WasteRouteEnv(EnvClient[WasteAction, WasteObservation, State]):
     """
-    Client for the Wasteroute Env Environment.
-
-    This client maintains a persistent WebSocket connection to the environment server,
-    enabling efficient multi-step interactions with lower latency.
-    Each client instance has its own dedicated environment session on the server.
+    Client for the WasteRoute Environment.
 
     Example:
-        >>> # Connect to a running server
-        >>> with WasterouteEnv(base_url="http://localhost:8000") as client:
+        >>> with WasteRouteEnv(base_url="http://localhost:7860") as client:
         ...     result = client.reset()
-        ...     print(result.observation.echoed_message)
+        ...     print(result.observation.bin_levels)
         ...
-        ...     result = client.step(WasterouteAction(message="Hello!"))
-        ...     print(result.observation.echoed_message)
-
-    Example with Docker:
-        >>> # Automatically start container and connect
-        >>> client = WasterouteEnv.from_docker_image("wasteroute_env-env:latest")
-        >>> try:
-        ...     result = client.reset()
-        ...     result = client.step(WasterouteAction(message="Test"))
-        ... finally:
-        ...     client.close()
+        ...     result = client.step(WasteAction(action_type="move", target_node=1))
+        ...     print(result.observation.current_node)
     """
 
-    def _step_payload(self, action: WasterouteAction) -> Dict:
-        """
-        Convert WasterouteAction to JSON payload for step message.
-
-        Args:
-            action: WasterouteAction instance
-
-        Returns:
-            Dictionary representation suitable for JSON encoding
-        """
+    def _step_payload(self, action: WasteAction) -> Dict:
+        """Convert WasteAction to JSON payload."""
         return {
+            "action_type": action.action_type,
+            "target_node": action.target_node,
             "message": action.message,
         }
 
-    def _parse_result(self, payload: Dict) -> StepResult[WasterouteObservation]:
-        """
-        Parse server response into StepResult[WasterouteObservation].
-
-        Args:
-            payload: JSON response data from server
-
-        Returns:
-            StepResult with WasterouteObservation
-        """
+    def _parse_result(self, payload: Dict) -> StepResult[WasteObservation]:
+        """Parse server response into StepResult[WasteObservation]."""
         obs_data = payload.get("observation", {})
-        observation = WasterouteObservation(
-            echoed_message=obs_data.get("echoed_message", ""),
-            message_length=obs_data.get("message_length", 0),
+        observation = WasteObservation(
+            current_node=obs_data.get("current_node", 0),
+            bin_levels=obs_data.get("bin_levels", {}),
+            fuel_remaining=obs_data.get("fuel_remaining", 1.0),
+            collected_bins=obs_data.get("collected_bins", []),
+            step_count=obs_data.get("step_count", 0),
+            total_reward=obs_data.get("total_reward", 0.0),
             done=payload.get("done", False),
-            reward=payload.get("reward"),
-            metadata=obs_data.get("metadata", {}),
+            message=obs_data.get("message", ""),
+            graph_edges=obs_data.get("graph_edges", []),
         )
-
         return StepResult(
             observation=observation,
             reward=payload.get("reward"),
@@ -84,15 +53,7 @@ class WasterouteEnv(
         )
 
     def _parse_state(self, payload: Dict) -> State:
-        """
-        Parse server response into State object.
-
-        Args:
-            payload: JSON response from state request
-
-        Returns:
-            State object with episode_id and step_count
-        """
+        """Parse server response into State."""
         return State(
             episode_id=payload.get("episode_id"),
             step_count=payload.get("step_count", 0),

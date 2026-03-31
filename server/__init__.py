@@ -1,11 +1,5 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
-
 """Wasteroute Env environment server components."""
 
-from .wasteroute_env_environment import WasterouteEnvironment
+from .wasteroute_env_environment import WasteRouteEnvironment
 
-__all__ = ["WasterouteEnvironment"]
+__all__ = ["WasteRouteEnvironment"]

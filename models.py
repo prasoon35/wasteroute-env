@@ -1,27 +1,28 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
-
-"""
-Data models for the Wasteroute Env Environment.
-
-The wasteroute_env environment is a simple test environment that echoes back messages.
-"""
-
-from openenv.core.env_server.types import Action, Observation
+from typing import List, Dict, Optional
 from pydantic import Field
+from openenv.core.env_server.types import Action, Observation
 
+class WasteAction(Action):
+    """What the agent does each step."""
+    action_type: str = Field(..., description="Type of action: 'move' or 'collect'")
+    target_node: int = Field(..., description="Node ID to move to or collect from")
+    message: Optional[str] = Field(default=None, description="Optional text message for LLM agents")
 
-class WasterouteAction(Action):
-    """Action for the Wasteroute Env environment - just a message to echo."""
+class BinInfo(object):
+    """Info about a single bin."""
+    def __init__(self, node_id: int, fill_level: float, capacity: float = 1.0):
+        self.node_id = node_id
+        self.fill_level = fill_level  # 0.0 to 1.0
+        self.capacity = capacity
 
-    message: str = Field(..., description="Message to echo back")
-
-
-class WasterouteObservation(Observation):
-    """Observation from the Wasteroute Env environment - the echoed message."""
-
-    echoed_message: str = Field(default="", description="The echoed message")
-    message_length: int = Field(default=0, description="Length of the echoed message")
+class WasteObservation(Observation):
+    """What the agent sees each step."""
+    current_node: int = Field(..., description="Current truck location (node ID)")
+    bin_levels: Dict[int, float] = Field(..., description="Fill level of each bin (0.0-1.0)")
+    fuel_remaining: float = Field(..., description="Remaining fuel (0.0-1.0)")
+    collected_bins: List[int] = Field(default=[], description="List of bin IDs collected so far")
+    step_count: int = Field(default=0, description="Current step number")
+    total_reward: float = Field(default=0.0, description="Accumulated reward so far")
+    done: bool = Field(default=False, description="Is episode over?")
+    message: str = Field(default="", description="Human readable description of what happened")
+    graph_edges: List[List[int]] = Field(default=[], description="List of [from, to, distance] edges")
