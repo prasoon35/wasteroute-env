@@ -1,7 +1,5 @@
 import sys
 import os
-
-# Add parent directory to path so 'models' is always findable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, '/app/env')
 
@@ -17,11 +15,15 @@ app = create_app(
     max_concurrent_envs=10,
 )
 
+# HF Spaces health check
+from fastapi import FastAPI
 @app.get("/")
-@app.get("/health")
-def health_check():
+def root():
     return {"status": "healthy"}
 
+@app.get("/health")
+def health():
+    return {"status": "healthy"}
 
 def main(host: str = "0.0.0.0", port: int = 7860):
     import uvicorn
