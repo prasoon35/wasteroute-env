@@ -1,7 +1,7 @@
 ---
 title: Wasteroute Env Environment Server
-emoji: ⌚
-colorFrom: green
+emoji: ⚾
+colorFrom: blue
 colorTo: red
 sdk: docker
 pinned: false

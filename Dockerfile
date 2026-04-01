@@ -7,9 +7,6 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends git && \
     rm -rf /var/lib/apt/lists/*
 
-ARG BUILD_MODE=in-repo
-ARG ENV_NAME=wasteroute_env
-
 COPY . /app/env
 WORKDIR /app/env
 
@@ -34,7 +31,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     fi
 
 FROM ${BASE_IMAGE}
-
 WORKDIR /app
 
 COPY --from=builder /app/env/.venv /app/.venv
@@ -44,10 +40,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/env:$PYTHONPATH"
 ENV ENABLE_WEB_INTERFACE=true
 
-# Use Python for health check (no curl needed)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7860/health', timeout=5)" || exit 1
-
 EXPOSE 7860
 
-CMD ["sh", "-c", "cd /app/env && uvicorn server.app:app --host 0.0.0.0 --port 7860"]
+CMD ["sh", "-c", "cd /app/env && uvicorn server.app:app --host 0.0.0.0 --port 7860 --workers 1"]
