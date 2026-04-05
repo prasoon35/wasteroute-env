@@ -1,12 +1,11 @@
 ---
-title: Wasteroute Env Environment Server
-emoji: ⚾
-colorFrom: blue
-colorTo: red
+title: WasteRoute Env
+emoji: 🚛
+colorFrom: green
+colorTo: blue
 sdk: docker
+app_port: 7860
 pinned: false
-app_port: 8000
-base_path: /web
 tags:
   - openenv
 ---
