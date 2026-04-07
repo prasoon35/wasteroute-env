@@ -1,32 +1,44 @@
 """
-WasteRoute-Env Baseline Inference Script.
+WasteRoute-Env Baseline Inference Script
 Runs an LLM agent against all 3 tasks and prints grader scores.
 
 Usage:
-    export API_BASE_URL="https://router.huggingface.co/v1"
-    export HF_TOKEN="hf_..."
-    export MODEL_NAME="Qwen/Qwen2.5-72B-Instruct"
-    export WASTEROUTE_URL="https://your-space.hf.space"
+    set HF_TOKEN=hf_...
+    set API_BASE_URL=https://router.huggingface.co/v1
+    set MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
     python inference.py
 """
 
 import os
 import sys
 import json
+from typing import List, Optional
 from openai import OpenAI
 
-# ── Credentials (MANDATORY) ─────────────────────────────────
+# ── Credentials ──────────────────────────────────────────────
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-WASTEROUTE_URL = os.getenv("WASTEROUTE_URL", "http://localhost:7860")
-
-# ── Settings ─────────────────────────────────────────────────
+BENCHMARK = "wasteroute_env"
 MAX_STEPS = 40
 TEMPERATURE = 0.2
 MAX_TOKENS = 100
+SUCCESS_SCORE_THRESHOLD = 0.3
 
-# ── System prompt for LLM agent ──────────────────────────────
+# ── Logging helpers ───────────────────────────────────────────
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    error_val = error if error else "null"
+    done_val = str(done).lower()
+    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
+
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+
+# ── System prompt ─────────────────────────────────────────────
 SYSTEM_PROMPT = """
 You are an AI agent controlling a waste collection truck in a city.
 
@@ -51,11 +63,10 @@ STRATEGY:
 
 Respond with ONLY a JSON object. No explanation. No extra text.
 Example: {"action_type": "collect", "target_node": 5}
-"""
+""".strip()
 
 
 def build_prompt(obs) -> str:
-    """Build user prompt from current observation."""
     return f"""
 Current state:
 - Your location: Node {obs.current_node}
@@ -65,41 +76,41 @@ Current state:
 - Last message: {obs.message}
 
 What is your next action? Respond with JSON only.
-"""
+""".strip()
 
 
 def parse_action(response_text: str) -> dict:
-    """Parse LLM response into action dict."""
     try:
-        # Clean response
         text = response_text.strip()
-        # Find JSON object
         start = text.find("{")
         end = text.rfind("}") + 1
         if start != -1 and end > start:
             return json.loads(text[start:end])
     except Exception:
         pass
-    # Fallback action
     return {"action_type": "move", "target_node": 1}
 
 
 def run_episode(env, client, task: str) -> tuple:
-    """Run one full episode and return obs_history + final obs."""
+    """Run one full episode with proper logging."""
+    from graders import grade
+
+    log_start(task=task, env=BENCHMARK, model=MODEL_NAME)
+
     obs = env.reset(task=task)
     obs_history = [obs]
+    rewards = []
+    steps_taken = 0
 
-    for step in range(MAX_STEPS):
+    for step in range(1, MAX_STEPS + 1):
         if obs.done:
             break
 
-        # Build messages for LLM
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": build_prompt(obs)},
         ]
 
-        # Call LLM
         try:
             completion = client.chat.completions.create(
                 model=MODEL_NAME,
@@ -109,34 +120,56 @@ def run_episode(env, client, task: str) -> tuple:
             )
             response_text = completion.choices[0].message.content or ""
         except Exception as e:
-            print(f"  LLM call failed: {e}. Using fallback.")
             response_text = '{"action_type": "move", "target_node": 1}'
 
-        # Parse action
         action_dict = parse_action(response_text)
-        print(f"  Step {step+1}: {action_dict} | fuel={obs.fuel_remaining:.2f}")
+        action_str = json.dumps(action_dict)
 
-        # Take action in environment
         from models import WasteAction
         action = WasteAction(
             action_type=action_dict.get("action_type", "move"),
             target_node=int(action_dict.get("target_node", 1)),
         )
+
         obs = env.step(action)
         obs_history.append(obs)
 
-    return obs_history, obs
+        reward = obs.total_reward - (rewards[-1] if rewards else 0.0)
+        rewards.append(round(reward, 2))
+        steps_taken = step
+
+        log_step(
+            step=step,
+            action=action_str,
+            reward=reward,
+            done=obs.done,
+            error=None
+        )
+
+        if obs.done:
+            break
+
+    score = grade(task, obs_history, obs)
+    success = score >= SUCCESS_SCORE_THRESHOLD
+
+    log_end(
+        success=success,
+        steps=steps_taken,
+        score=score,
+        rewards=rewards
+    )
+
+    return obs_history, obs, score
 
 
 def main():
-    # ── Setup ────────────────────────────────────────────────
     sys.path.insert(0, os.path.dirname(__file__))
 
     from server.wasteroute_env_environment import WasteRouteEnvironment
     from graders import grade
 
     if not API_KEY:
-        print("ERROR: HF_TOKEN or API_KEY environment variable not set!")
+        print("ERROR: HF_TOKEN or API_KEY not set!")
         sys.exit(1)
 
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
@@ -147,20 +180,14 @@ def main():
     print(f"Model: {MODEL_NAME}")
     print("=" * 50)
 
-    # ── Run all 3 tasks ──────────────────────────────────────
     results = {}
     for task in ["easy", "medium", "hard"]:
-        print(f"\n--- Task: {task.upper()} ---")
-        obs_history, final_obs = run_episode(env, client, task)
-        score = grade(task, obs_history, final_obs)
+        print(f"\n{'='*50}")
+        _, _, score = run_episode(env, client, task)
         results[task] = score
-        print(f"Bins collected: {len(final_obs.collected_bins)}")
-        print(f"Fuel remaining: {final_obs.fuel_remaining}")
-        print(f"Grader score:   {score}")
 
-    # ── Final scores ─────────────────────────────────────────
     print("\n" + "=" * 50)
-    print("BASELINE SCORES:")
+    print("FINAL BASELINE SCORES:")
     for task, score in results.items():
         print(f"  {task:8s}: {score:.3f}")
     avg = sum(results.values()) / len(results)
