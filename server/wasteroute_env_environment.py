@@ -111,8 +111,31 @@ class WasteRouteEnvironment(Environment):
             for node in self._config["bin_nodes"]
         }
 
-    def reset(self, task: Optional[str] = None, **kwargs) -> WasteObservation:
+    # def reset(self, task: Optional[str] = None, **kwargs) -> WasteObservation:
+    #     """Reset environment for a new episode."""
+    #     if task and task in self.TASKS:
+    #         self._task = task
+    #         self._config = self.TASKS[task]
+
+    #     self._state = State(episode_id=str(uuid4()), step_count=0)
+    #     self._graph = build_graph(self._config["edges"])
+
+    #     # 🎲 Randomize bin levels every episode!
+    #     self._bin_levels = self._randomize_bin_levels()
+
+    #     self._collected = []
+    #     self._fuel = self._config["fuel"]
+    #     self._current_node = 0
+    #     self._total_reward = 0.0
+
+
+    def reset(self, task: Optional[str] = None, seed: Optional[int] = None, **kwargs) -> WasteObservation:
         """Reset environment for a new episode."""
+        
+        # Lock the randomizer ONLY if a seed is provided
+        if seed is not None:
+            random.seed(seed)
+
         if task and task in self.TASKS:
             self._task = task
             self._config = self.TASKS[task]
@@ -120,7 +143,7 @@ class WasteRouteEnvironment(Environment):
         self._state = State(episode_id=str(uuid4()), step_count=0)
         self._graph = build_graph(self._config["edges"])
 
-        # 🎲 Randomize bin levels every episode!
+        # Randomize bin levels (will be perfectly deterministic if seed was set above)
         self._bin_levels = self._randomize_bin_levels()
 
         self._collected = []
@@ -128,17 +151,39 @@ class WasteRouteEnvironment(Environment):
         self._current_node = 0
         self._total_reward = 0.0
 
+
+    # def reset(self, task: Optional[str] = None, seed: int = 42, **kwargs):
+    #     if task and task in self.TASKS:
+    #         self._task = task
+    #         self._config = self.TASKS[task]
+
+    # # Seed FIRST for reproducibility
+    #     random.seed(seed)
+
+    #     self._state = State(episode_id=str(uuid4()), step_count=0)
+    #     self._graph = build_graph(self._config["edges"])
+    
+    # # Now randomize — but deterministically because of seed above
+    #     self._bin_levels = self._randomize_bin_levels()
+    
+    #     self._collected = []
+    #     self._fuel = self._config["fuel"]
+    #     self._current_node = 0
+    #     self._total_reward = 0.0
+
         return WasteObservation(
             current_node=self._current_node,
-            bin_levels=self._bin_levels,
-            fuel_remaining=self._fuel,
-            collected_bins=self._collected,
+            bin_levels=dict(self._bin_levels),
+            fuel_remaining=round(self._fuel, 3),
+            collected_bins=list(self._collected),
             step_count=0,
             total_reward=0.0,
             done=False,
             message=f"Episode started. Task: {self._task}. Truck at depot (node 0).",
             graph_edges=self._config["edges"],
         )
+    
+
 
     def step(self, action: WasteAction, **kwargs) -> WasteObservation:
         """Execute one step."""

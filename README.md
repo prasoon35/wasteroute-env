@@ -75,10 +75,10 @@ Municipal waste collection is a genuine logistics challenge faced by cities worl
 
 | Task | Score |
 |------|-------|
-| easy | 0.586 |
-| medium | 0.359 |
-| hard | 0.228 |
-| **average** | **0.391** |
+| easy | 0.540 |
+| medium | 0.344 |
+| hard | 0.301 |
+| **average** | **0.395** |
 
 *Baseline agent: Qwen/Qwen2.5-72B-Instruct via HF Inference API*
 

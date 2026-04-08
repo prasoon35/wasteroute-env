@@ -97,7 +97,7 @@ def run_episode(env, client, task: str) -> tuple:
 
     log_start(task=task, env=BENCHMARK, model=MODEL_NAME)
 
-    obs = env.reset(task=task)
+    obs = env.reset(task=task, seed=42)
     obs_history = [obs]
     rewards = []
     steps_taken = 0
@@ -120,6 +120,7 @@ def run_episode(env, client, task: str) -> tuple:
             )
             response_text = completion.choices[0].message.content or ""
         except Exception as e:
+            print(f"API ERROR: {e}")
             response_text = '{"action_type": "move", "target_node": 1}'
 
         action_dict = parse_action(response_text)
