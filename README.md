@@ -1,16 +1,5 @@
----
-title: WasteRoute Env
-emoji: 🚛
-colorFrom: green
-colorTo: blue
-sdk: docker
-app_port: 7860
-pinned: false
-tags:
-  - openenv
----
-
 # WasteRoute-Env 🚛
+> **Route smarter. Collect better. Leave no bin behind.**
 
 An OpenEnv reinforcement learning environment simulating urban waste collection. An AI agent controls a garbage truck navigating a city road network, deciding which bins to collect while managing fuel efficiently.
 
@@ -23,6 +12,24 @@ Municipal waste collection is a genuine logistics challenge faced by cities worl
 - **World:** City represented as a weighted graph (nodes = locations, edges = roads with distances)
 - **Agent:** Controls a garbage truck starting at depot (node 0)
 - **Goal:** Collect waste bins efficiently while managing limited fuel
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart TD
+    A[LLM Agent / Human] -->|WasteAction| B[FastAPI Server]
+    B --> C[WasteRouteEnvironment]
+    C --> D{Action Type}
+    D -->|move| E[Dijkstra Shortest Path]
+    D -->|collect| F[Reward Calculation]
+    E --> G[Update Fuel & Location]
+    F --> H[Update Bin Levels]
+    G --> I[WasteObservation]
+    H --> I
+    I -->|JSON Response| A
+    C --> J[Grader]
+    J -->|Score 0.0-1.0| K[Evaluation]
+```
 
 ## Action Space
 ```json
